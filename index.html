@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cool Roblox Dashboard</title>
+<style>
+body, html {
+  margin: 0; padding: 0; height: 100%;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: black; color: white; overflow: hidden;
+}
+#particles { position: fixed; top:0; left:0; width:100%; height:100%; z-index:-1; background:black; }
+
+/* Pantalla de carga */
+#loadingScreen {
+  position: fixed; top:0; left:0; width:100%; height:100%;
+  display:flex; justify-content:center; align-items:center; flex-direction:column;
+  background: radial-gradient(circle, #00ffe0 0%, #000 100%);
+  color:white; font-size:24px; z-index:10;
+}
+.loadingBar { width:300px; height:25px; background:#333; border-radius:20px; overflow:hidden; margin-top:20px; box-shadow:0 0 15px #00fff2; }
+.loadingFill { height:100%; width:0%; background:linear-gradient(90deg,#00f0ff,#00ff80,#ff00ff); animation: loadAnim 3s linear forwards; }
+@keyframes loadAnim { from{width:0%} to{width:100%} }
+
+/* Dashboard */
+.dashboard { position: relative; padding: 20px; text-align: center; z-index:1; }
+.dashboard h1 {
+  font-size: 2.5rem;
+  background: linear-gradient(90deg,#0ff,#f0f,#0ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: glow 2s infinite alternate;
+}
+@keyframes glow { from { text-shadow: 0 0 10px #0ff; } to { text-shadow: 0 0 20px #ff00ff; } }
+
+.game-card {
+  display:inline-block; margin:15px; width:220px; border-radius:16px; overflow:hidden;
+  background: rgba(255,255,255,0.08); box-shadow:0 8px 20px rgba(0,0,0,0.7);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  cursor:pointer; backdrop-filter: blur(6px);
+}
+.game-card:hover { transform: scale(1.08); box-shadow:0 0 20px #0ff; }
+.game-card img { width:100%; display:block; border-radius:8px; }
+
+/* Botones flotantes */
+.menu-buttons {
+  position: fixed; bottom:20px; right:20px;
+  display:flex; flex-direction:column; gap:12px; z-index:5;
+}
+.menu-buttons button {
+  padding:12px 18px; border:none; border-radius:12px;
+  background:linear-gradient(135deg,#0ff,#ff00ff);
+  color:black; font-weight:bold; cursor:pointer;
+  box-shadow:0 0 15px rgba(0,255,255,0.6);
+  transition: transform 0.25s, box-shadow 0.25s;
+}
+.menu-buttons button:hover { transform: scale(1.15); box-shadow:0 0 25px #ff00ff; }
+
+/* Panel Más */
+.panel {
+  position: fixed; bottom:-100%; left:0; width:100%;
+  background: rgba(0,0,0,0.95); color:white; text-align:center; padding:25px; border-radius:20px 20px 0 0;
+  transition: bottom 0.5s ease; z-index:4; backdrop-filter: blur(6px);
+  box-shadow:0 -5px 25px rgba(0,255,255,0.5);
+}
+.panel.open { bottom:0; }
+
+/* Panel notas */
+#notesSection {
+  position: fixed; right:20px; top:150px; width:320px; max-height:70%; overflow-y:auto;
+  background: rgba(0,0,0,0.95); border:1px solid #0ff; border-radius:12px; padding:12px; display:none; z-index:6;
+  box-shadow:0 0 20px #0ff;
+}
+#notesSection h2 { margin-top:0; color:#0ff; }
+#notesSection textarea { width:100%; height:60px; margin-top:5px; border-radius:8px; padding:5px; }
+#notesSection button { margin-top:8px; padding:6px 12px; background:linear-gradient(135deg,#0ff,#ff00ff); border:none; border-radius:8px; color:black; font-weight:bold; cursor:pointer; }
+
+/* Ajustes */
+.settings-gear { position:fixed; top:20px; right:20px; font-size:26px; cursor:pointer; z-index:5; }
+.settings-popup {
+  display:none; position:fixed; top:70px; right:70px;
+  background:rgba(0,0,0,0.95); border:1px solid #0ff; padding:15px;
+  border-radius:12px; z-index:6; box-shadow:0 0 20px #0ff;
+}
+.settings-popup select, .settings-popup button { margin-top:10px; padding:5px; border-radius:6px; border:none; }
+
+/* Popup añadir juego */
+#addGamePopup {
+  display: none;
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0,0,0,0.95);
+  border: 1px solid #0ff;
+  border-radius: 12px;
+  padding: 20px;
+  z-index: 10;
+  width: 300px;
+  text-align: center;
+  box-shadow: 0 0 20px #0ff;
+}
+#addGamePopup input, #addGamePopup label { margin-top: 8px; display: block; width: 100%; }
+#addGamePopup button { margin-top: 10px; padding: 8px 12px; border: none; border-radius: 8px; background: linear-gradient(135deg,#0ff,#ff00ff); font-weight: bold; cursor: pointer; }
+</style>
+</head>
+<body>
+<canvas id="particles"></canvas>
+
+<!-- Pantalla de carga -->
+<div id="loadingScreen">
+  <div id="loadingText">Loading...</div>
+  <div class="loadingBar"><div class="loadingFill"></div></div>
+</div>
+
+<!-- Dashboard principal -->
+<div class="dashboard" id="dashboard">
+  <h1 id="title">Welcome to your Roblox Dashboard</h1>
+  <div id="gamesContainer"></div>
+</div>
+
+<!-- Botones menú -->
+<div class="menu-buttons">
+  <button id="btnMore" onclick="togglePanel()">More</button>
+  <button id="btnAddGame" onclick="addGamePrompt()">Add Game</button>
+</div>
+
+<!-- Panel Más -->
+<div class="panel" id="panel">
+  <h2 id="panelTitle">Are you a Roblox Developer?</h2>
+  <p id="panelText">Click the button below to talk or ask Iker Belancor for help!</p>
+  <button id="panelBtn" onclick="openDiscord()">JOIN!</button>
+</div>
+
+<!-- Ajustes -->
+<div class="settings-gear" onclick="toggleSettings()">⚙️</div>
+<div class="settings-popup" id="settingsPopup">
+  <label for="langSelect">Idioma / Language:</label>
+  <select id="langSelect">
+    <option value="en">English</option>
+    <option value="es">Español</option>
+  </select>
+  <button onclick="saveLanguage()">Guardar / Save</button>
+</div>
+
+<!-- Panel notas -->
+<div id="notesSection">
+  <h2 id="notesTitle">Your Notes</h2>
+  <div id="notesList"></div>
+  <textarea id="noteInput" placeholder="Write your note here..."></textarea>
+  <button id="saveNoteBtn" onclick="saveNote()">Save Note</button>
+  <button id="backBtn" onclick="backToDashboard()">↩ Back</button>
+</div>
+
+<!-- Popup añadir juego -->
+<div id="addGamePopup">
+  <h3 id="addGameTitle">Add Game</h3>
+  <input type="text" id="gameNameInput" placeholder="Game name">
+  <input type="text" id="thumbInput" placeholder="Thumbnail URL (optional)">
+  <label><input type="checkbox" id="useRobloxThumb"> Use Roblox game link</label>
+  <input type="text" id="robloxLink" placeholder="Roblox game link" disabled>
+  <button id="confirmAddBtn" onclick="confirmAddGame()">Add</button>
+  <button id="cancelAddBtn" onclick="closeAddGamePopup()">Cancel</button>
+</div>
+
+<script>
+// --- Traducciones ---
+const translations = {
+  en: {
+    title: "Welcome to your Roblox Dashboard",
+    btnMore: "More",
+    btnAddGame: "Add Game",
+    panelTitle: "Are you a Roblox Developer?",
+    panelText: "Click the button below to talk or ask Iker Belancor for help!",
+    panelBtn: "JOIN!",
+    notesTitle: "Your Notes",
+    saveNoteBtn: "Save Note",
+    backBtn: "↩ Back",
+    addGameTitle: "Add Game",
+    confirmAddBtn: "Add",
+    cancelAddBtn: "Cancel",
+    notePlaceholder: "Write your note here...",
+    alerts: {
+      emptyNote: "Empty note!",
+      gameName: "Game name required",
+      robloxLink: "Roblox link required",
+      invalidLink: "Invalid Roblox link!"
+    },
+    saved: "Language saved"
+  },
+  es: {
+    title: "Bienvenido a tu Panel de Roblox",
+    btnMore: "Más",
+    btnAddGame: "Añadir Juego",
+    panelTitle: "¿Eres desarrollador de Roblox?",
+    panelText: "¡Haz clic en el botón de abajo para hablar o pedir ayuda a Iker Belancor!",
+    panelBtn: "UNIRSE",
+    notesTitle: "Tus Notas",
+    saveNoteBtn: "Guardar Nota",
+    backBtn: "↩ Volver",
+    addGameTitle: "Añadir Juego",
+    confirmAddBtn: "Añadir",
+    cancelAddBtn: "Cancelar",
+    notePlaceholder: "Escribe tu nota aquí...",
+    alerts: {
+      emptyNote: "¡Nota vacía!",
+      gameName: "El nombre del juego es obligatorio",
+      robloxLink: "Se requiere enlace de Roblox",
+      invalidLink: "¡Enlace de Roblox inválido!"
+    },
+    saved: "Idioma guardado"
+  }
+};
+
+// --- Idioma inicial (dispositivo o guardado) ---
+let currentLang = localStorage.getItem("lang");
+if (!currentLang) {
+  const deviceLang = (navigator.language || navigator.userLanguage || "en").substring(0,2);
+  currentLang = (deviceLang === "es") ? "es" : "en";
+  localStorage.setItem("lang", currentLang);
+}
+document.getElementById("langSelect").value = currentLang;
+applyTranslations();
+
+// --- Cambiar idioma automáticamente si el sistema cambia ---
+window.addEventListener("languagechange", ()=>{
+  const deviceLang = (navigator.language || navigator.userLanguage || "en").substring(0,2);
+  currentLang = (deviceLang === "es") ? "es" : "en";
+  localStorage.setItem("lang", currentLang);
+  document.getElementById("langSelect").value = currentLang;
+  applyTranslations();
+});
+
+// --- Función aplicar traducciones ---
+function applyTranslations(){
+  const t = translations[currentLang];
+  document.getElementById("title").innerText = t.title;
+  document.getElementById("btnMore").innerText = t.btnMore;
+  document.getElementById("btnAddGame").innerText = t.btnAddGame;
+  document.getElementById("panelTitle").innerText = t.panelTitle;
+  document.getElementById("panelText").innerText = t.panelText;
+  document.getElementById("panelBtn").innerText = t.panelBtn;
+  document.getElementById("notesTitle").innerText = t.notesTitle;
+  document.getElementById("saveNoteBtn").innerText = t.saveNoteBtn;
+  document.getElementById("backBtn").innerText = t.backBtn;
+  document.getElementById("addGameTitle").innerText = t.addGameTitle;
+  document.getElementById("confirmAddBtn").innerText = t.confirmAddBtn;
+  document.getElementById("cancelAddBtn").innerText = t.cancelAddBtn;
+  document.getElementById("noteInput").placeholder = t.notePlaceholder;
+}
+
+// --- Guardar idioma manualmente ---
+function saveLanguage(){
+  currentLang=document.getElementById("langSelect").value;
+  localStorage.setItem("lang",currentLang);
+  applyTranslations();
+  alert(translations[currentLang].saved);
+}
+
+// --- Lógica ---
+setTimeout(()=>{document.getElementById("loadingScreen").style.display="none"; loadGames();},3000);
+
+// Partículas
+const canvas=document.getElementById("particles"),ctx=canvas.getContext("2d");
+canvas.width=window.innerWidth; canvas.height=window.innerHeight;
+const particles=[];
+for(let i=0;i<60;i++){particles.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,r:Math.random()*3+1,dx:(Math.random()-0.5)*0.5,dy:(Math.random()-0.5)*0.5});}
+function drawParticles(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle="#0ff";
+  particles.forEach(p=>{
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
+    p.x+=p.dx; p.y+=p.dy;
+    if(p.x<0||p.x>canvas.width)p.dx*=-1;
+    if(p.y<0||p.y>canvas.height)p.dy*=-1;
+  });
+  requestAnimationFrame(drawParticles);
+}
+drawParticles();
+
+// Panel Más
+function togglePanel(){document.getElementById("panel").classList.toggle("open");}
+function openDiscord(){window.open("https://discord.com/users/1166067053057282178","_blank");}
+
+// Juegos y notas
+let currentGame=null;
+function loadGames(){
+  const container=document.getElementById("gamesContainer"); container.innerHTML="";
+  const games=JSON.parse(localStorage.getItem("games")||"[]");
+  games.forEach((g,i)=>{
+    const card=document.createElement("div"); card.className="game-card";
+    card.innerHTML=`<img src="${g.thumb||'https://via.placeholder.com/200'}"><p>${g.name}</p>`;
+    card.onclick=()=>openNotes(g.name);
+    container.appendChild(card);
+  });
+}
+
+function openNotes(name){
+  const games=JSON.parse(localStorage.getItem("games")||"[]");
+  currentGame=games.find(g=>g.name===name);
+  document.getElementById("dashboard").style.display="none";
+  document.getElementById("notesSection").style.display="block";
+  document.getElementById("notesTitle").innerText=currentGame.name + " - " + translations[currentLang].notesTitle;
+  renderNotes();
+}
+function renderNotes(){
+  const container=document.getElementById("notesList"); container.innerHTML="";
+  currentGame.notes.forEach(n=>{
+    const div=document.createElement("div"); div.className="note-item"; div.innerText=`[${n.date}] ${n.text}`;
+    container.appendChild(div);
+  });
+}
+function saveNote(){
+  const text=document.getElementById("noteInput").value.trim();
+  if(!text) return alert(translations[currentLang].alerts.emptyNote);
+  const date=new Date().toLocaleDateString();
+  currentGame.notes.push({text,date});
+  const games=JSON.parse(localStorage.getItem("games")||"[]");
+  const idx=games.findIndex(g=>g.name===currentGame.name);
+  games[idx]=currentGame;
+  localStorage.setItem("games",JSON.stringify(games));
+  document.getElementById("noteInput").value="";
+  renderNotes();
+}
+function backToDashboard(){
+  document.getElementById("notesSection").style.display="none";
+  document.getElementById("dashboard").style.display="block";
+}
+
+// Añadir juego
+function addGamePrompt(){document.getElementById("addGamePopup").style.display="block";}
+function closeAddGamePopup(){document.getElementById("addGamePopup").style.display="none";}
+document.getElementById("useRobloxThumb").addEventListener("change",function(){
+  document.getElementById("robloxLink").disabled=!this.checked;
+});
+function confirmAddGame(){
+  const t=translations[currentLang].alerts;
+  const name=document.getElementById("gameNameInput").value.trim();
+  if(!name) return alert(t.gameName);
+  let thumb=document.getElementById("thumbInput").value.trim();
+  const useRoblox=document.getElementById("useRobloxThumb").checked;
+  const robloxLink=document.getElementById("robloxLink").value.trim();
+  if(useRoblox){
+    if(!robloxLink) return alert(t.robloxLink);
+    const match=robloxLink.match(/roblox\.com\/games\/(\d+)/);
+    if(!match) return alert(t.invalidLink);
+    thumb=`https://tr.rbxcdn.com/${match[1]}/420/420/Image/Png`;
+  }
+  const games=JSON.parse(localStorage.getItem("games")||"[]");
+  games.push({name,thumb,notes:[]});
+  localStorage.setItem("games",JSON.stringify(games));
+  loadGames();
+  closeAddGamePopup();
+}
+
+// Ajustes idioma
+function toggleSettings(){
+  const popup=document.getElementById("settingsPopup");
+  popup.style.display=(popup.style.display==="block")?"none":"block";
+}
+</script>
+</body>
+</html>
